@@ -9,7 +9,7 @@ import { Provider } from "react-redux";
 import { usersReducer } from "../usersReducer";
 import { renderRoutes } from "react-router-config";
 
-const INITIAL_STATE = {};
+const INITIAL_STATE = window.INITIAL_STATE;
 
 const middleware = [thunk];
 

@@ -9,6 +9,7 @@ import { createStore, applyMiddleware, combineReducers } from "redux";
 import thunk from "redux-thunk";
 import { usersReducer } from "./usersReducer";
 import { renderRoutes, matchRoutes } from "react-router-config";
+import serialize from "serialize-javascript";
 
 // Set Up The Renderer Server
 const app = express();
@@ -26,47 +27,53 @@ app.use("/assets", express.static("src/public"));
  * 3 - Redux State Rehydration On The Browser
  */
 
+const store = createStore(
+  combineReducers({
+    users: usersReducer
+  }),
+  INITIAL_STATE,
+  applyMiddleware(thunk)
+);
+
 // Main Render Middleware
 app.use(function(req, res, next) {
-  const promises = matchRoutes(Routes, req.path);
-  console.log(promises);
-  const content = renderToString(
-    <Provider
-      store={createStore(
-        combineReducers({
-          users: usersReducer
-        }),
-        INITIAL_STATE,
-        applyMiddleware(thunk)
-      )}
-    >
-      {/**Server Side Redux Store Created For Initial Data Loading And Make Detection Before Rendering HTML On Server */}
-      <Router context={{}} location={req.path}>
-        {/** Set Up Routing Route Configuration For Server With Static Router Object For SSR (No Address Bar For Server) For Route Matching From Client Side Routing Configuration */}
-        <Switch>{renderRoutes(Routes)}</Switch>{" "}
-        {/**To Make Server Check With React Router Config Which Component Requires Data Loading Before Render It */}
-      </Router>
-    </Provider>
-  );
+  const promises = matchRoutes(Routes, req.path).map(({ route }) => {
+    if (route.loadData) {
+      return route.loadData(store);
+    } else {
+      return null;
+    }
+  });
 
-  // Set Markup And Send From The Renderer Server
-  const markup = `
-    <html lang="en">
-      <head>
-        <link rel='stylesheet' href='/assets/app.css' />
-      </head>
-      <body>
-        <div id='root'>${content}</div>
-        <script src='/assets/client_bundle.js'></script>
-      </body>
-    </html>
-  `;
+  Promise.all(promises).then(() => {
+    const content = renderToString(
+      <Provider store={store}>
+        {/**Server Side Redux Store Created For Initial Data Loading And Make Detection Before Rendering HTML On Server */}
+        <Router context={{}} location={req.path}>
+          {/** Set Up Routing Route Configuration For Server With Static Router Object For SSR (No Address Bar For Server) For Route Matching From Client Side Routing Configuration */}
+          <Switch>{renderRoutes(Routes)}</Switch>
+          {/**To Make Server Check With React Router Config Which Component Requires Data Loading Before Render It */}
+        </Router>
+      </Provider>
+    );
 
-  // Send HTML Page To Client From Renderer Server
-  res.send(markup);
+    // Set Markup And Send From The Renderer Server
+    const markup = `
+      <html lang="en">
+        <head>
+          <link rel='stylesheet' href='/assets/app.css' />
+        </head>
+        <body>
+          <div id='root'>${content}</div>
+          <script>window.INITIAL_STATE=${serialize(store.getState())}</script>
+          <script src='/assets/client_bundle.js'></script>
+        </body>
+      </html>
+    `;
 
-  // Call The next Middleware
-  next();
+    // Send HTML Page To Client From Renderer Server
+    res.send(markup);
+  });
 });
 
 // Listen To Rendering Server

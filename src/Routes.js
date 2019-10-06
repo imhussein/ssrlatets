@@ -11,6 +11,7 @@ export default [
   {
     path: "/users",
     component: Users.component,
-    exact: true
+    exact: true,
+    loadData: Users.loadData,
   }
 ];

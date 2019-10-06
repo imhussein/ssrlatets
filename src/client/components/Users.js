@@ -48,5 +48,7 @@ const component = connect(
 
 export default {
   component,
-  loadData: () => {}
+  loadData: store => {
+    return store.dispatch(getUsers());
+  }
 };

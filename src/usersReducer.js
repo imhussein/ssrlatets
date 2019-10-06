@@ -4,11 +4,15 @@ const FETCH_USERS = "FETCH_USERS";
 
 export function getUsers() {
   return async function(dispatch) {
-    const res = await axios.get("http://react-ssr-api.herokuapp.com/users");
-    dispatch({
-      type: FETCH_USERS,
-      payload: res.data
-    });
+    try {
+      const res = await axios.get("http://react-ssr-api.herokuapp.com/users");
+      dispatch({
+        type: FETCH_USERS,
+        payload: res.data
+      });
+    } catch (error) {
+      console.log(error, "ERROR");
+    }
   };
 }
 
